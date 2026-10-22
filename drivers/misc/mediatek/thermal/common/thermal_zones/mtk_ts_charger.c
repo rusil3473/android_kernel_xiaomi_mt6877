@@ -20,6 +20,7 @@
 #include <linux/uidgid.h>
 #include <linux/slab.h>
 #include <linux/power_supply.h>
+#include <linux/reboot.h>
 
 
 

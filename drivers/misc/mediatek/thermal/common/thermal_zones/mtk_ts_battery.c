@@ -25,6 +25,7 @@
 #include <linux/slab.h>
 #include "tzbatt_initcfg.h"
 #include <linux/power_supply.h>
+#include <linux/reboot.h>
 
 
 /* ************************************ */
@@ -415,9 +416,7 @@ struct thermal_cooling_device *cdev, unsigned long state)
 
 	cl_dev_sysrst_state = state;
 	if (cl_dev_sysrst_state == 1) {
-		pr_notice("Power/battery_Thermal: Critical battery temperature reached! Throttling and orderly shutdown\n");
-		set_bat_charging_current_limit(500);
-		set_chr_input_current_limit(500);
+		pr_notice("Power/battery_Thermal: Critical battery temperature reached, orderly poweroff triggered\n");
 		orderly_poweroff(true);
 	}
 	return 0;
