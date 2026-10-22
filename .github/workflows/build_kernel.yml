@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - 16.0
+      - "16.0"
 
 jobs:
   build:
@@ -15,7 +15,6 @@ jobs:
       - name: Checkout Kernel Source
         uses: actions/checkout@v4
         with:
-          ref: 16.0
           fetch-depth: 1
 
       - name: Set up Build Environment
@@ -39,14 +38,13 @@ jobs:
             python3 \
             zip
 
-      - name: Download AOSP Clang Toolchain
+      - name: Download Neutron LLVM/Clang Toolchain
         run: |
           mkdir -p clang
           cd clang
-          echo "Downloading AOSP Clang toolchain..."
-          wget -q https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/clang-r487747c.tar.gz
-          tar -xzf clang-r487747c.tar.gz
-          rm clang-r487747c.tar.gz
+          curl -LO "https://raw.githubusercontent.com/Neutron-Toolchains/antman/main/antman"
+          chmod +x antman
+          bash antman -S
           echo "Clang version:"
           ./bin/clang --version
 
