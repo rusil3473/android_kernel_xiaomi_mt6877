@@ -1,0 +1,111 @@
+name: Build Redmi Note 12 Pro 5G Kernel (MT6877)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - 16.0
+
+jobs:
+  build:
+    name: Build Kernel Image
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout Kernel Source
+        uses: actions/checkout@v4
+        with:
+          ref: 16.0
+          fetch-depth: 1
+
+      - name: Set up Build Environment
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y \
+            bc \
+            bison \
+            build-essential \
+            curl \
+            flex \
+            git \
+            gnupg \
+            gperf \
+            libelf-dev \
+            libssl-dev \
+            lz4 \
+            zlib1g-dev \
+            gcc-aarch64-linux-gnu \
+            gcc-arm-linux-gnueabi \
+            python3 \
+            zip
+
+      - name: Download AOSP Clang Toolchain
+        run: |
+          mkdir -p clang
+          cd clang
+          echo "Downloading AOSP Clang toolchain..."
+          wget -q https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/clang-r487747c.tar.gz
+          tar -xzf clang-r487747c.tar.gz
+          rm clang-r487747c.tar.gz
+          echo "Clang version:"
+          ./bin/clang --version
+
+      - name: Build Kernel (Image.gz & DTB)
+        run: |
+          export PATH="$(pwd)/clang/bin:$PATH"
+          export ARCH=arm64
+          export SUBARCH=arm64
+          export HEADER_ARCH=arm64
+          
+          mkdir -p out
+          
+          echo "Generating defconfig..."
+          make O=out ARCH=arm64 ruby_defconfig
+          
+          echo "Compiling kernel..."
+          make -j$(nproc --all) O=out \
+            ARCH=arm64 \
+            CC=clang \
+            LD=ld.lld \
+            AR=llvm-ar \
+            NM=llvm-nm \
+            OBJCOPY=llvm-objcopy \
+            OBJDUMP=llvm-objdump \
+            STRIP=llvm-strip \
+            CROSS_COMPILE=aarch64-linux-gnu- \
+            CROSS_COMPILE_ARM32=arm-linux-gnueabi- \
+            LLVM=1 \
+            LLVM_IAS=1 \
+            Image.gz dtbs
+          
+          if [ -f "out/arch/arm64/boot/Image.gz" ]; then
+            echo "Kernel compiled successfully!"
+            ls -la out/arch/arm64/boot/Image.gz
+          else
+            echo "Kernel compilation failed!"
+            exit 1
+          fi
+
+      - name: Package Output Artifacts
+        run: |
+          mkdir -p build_output
+          cp out/arch/arm64/boot/Image.gz build_output/Image.gz
+          if [ -d "out/arch/arm64/boot/dts/mediatek" ]; then
+            find out/arch/arm64/boot/dts/mediatek/ -name "*.dtb" -exec cp {} build_output/ \;
+          fi
+          cd build_output
+          zip -r ../Redmi_Note_12_Pro_MT6877_Patched_Kernel.zip *
+
+      - name: Upload Kernel Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Patched-Kernel-MT6877-Image.gz
+          path: build_output/Image.gz
+          retention-days: 14
+
+      - name: Upload Full Kernel Package (Zip)
+        uses: actions/upload-artifact@v4
+        with:
+          name: Redmi_Note_12_Pro_MT6877_Patched_Kernel
+          path: Redmi_Note_12_Pro_MT6877_Patched_Kernel.zip
+          retention-days: 14

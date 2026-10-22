@@ -80,16 +80,17 @@ struct thermal_cooling_device *cdev, unsigned long state)
 
 #ifdef CONFIG_LVTS_DYNAMIC_ENABLE_REBOOT
 		if (tpcb > DYNAMIC_REBOOT_TRIP_TEMP) {
-			tscpu_printk("SW reset! tpcb = %d\n", tpcb);
-			BUG();
+			tscpu_printk("Thermal critical: tpcb = %d, triggering orderly poweroff\n", tpcb);
+			orderly_poweroff(true);
 		} else {
 			tscpu_printk("Skip SW reset! tpcb = %d\n", tpcb);
 		}
 #else
-		/* To trigger data abort to reset the system
-		 * for thermal protection.
+		/* Prevent abrupt kernel panic data abort reboot;
+		 * invoke graceful orderly poweroff instead.
 		 */
-		BUG();
+		tscpu_printk("Thermal critical emergency: triggering orderly poweroff\n");
+		orderly_poweroff(true);
 #endif
 
 	}

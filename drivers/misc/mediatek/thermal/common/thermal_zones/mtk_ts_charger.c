@@ -363,15 +363,10 @@ struct thermal_cooling_device *cdev, unsigned long state)
 {
 	cl_dev_sysrst_state = state;
 	if (cl_dev_sysrst_state == 1) {
-		pr_notice("[Thermal/mtktscharger_sysrst] reset, reset, reset!!!\n");
-		pr_notice("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
-		pr_notice("*****************************************\n");
-		pr_notice("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\n");
-
-		/* To trigger data abort to reset the system
-		 * for thermal protection.
-		 */
-		BUG();
+		pr_notice("[Thermal/mtktscharger_sysrst] Emergency thermal limit reached: throttling charge current and orderly shutdown\n");
+		set_bat_charging_current_limit(500);
+		set_chr_input_current_limit(500);
+		orderly_poweroff(true);
 	}
 
 	return 0;

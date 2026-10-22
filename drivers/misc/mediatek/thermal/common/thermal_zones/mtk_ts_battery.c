@@ -415,15 +415,10 @@ struct thermal_cooling_device *cdev, unsigned long state)
 
 	cl_dev_sysrst_state = state;
 	if (cl_dev_sysrst_state == 1) {
-		pr_debug("Power/battery_Thermal: reset, reset, reset!!!");
-		pr_debug("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
-		pr_debug("*****************************************");
-		pr_debug("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
-
-		/* To trigger data abort to reset the system
-		 * for thermal protection.
-		 */
-		BUG();
+		pr_notice("Power/battery_Thermal: Critical battery temperature reached! Throttling and orderly shutdown\n");
+		set_bat_charging_current_limit(500);
+		set_chr_input_current_limit(500);
+		orderly_poweroff(true);
 	}
 	return 0;
 }

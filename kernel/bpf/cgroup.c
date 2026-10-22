@@ -1053,6 +1053,9 @@ int __cgroup_bpf_run_filter_skb(struct sock *sk,
 		return 0;
 
 	cgrp = sock_cgroup_ptr(&sk->sk_cgrp_data);
+	if (!cgrp || (unsigned long)cgrp < PAGE_SIZE || (unsigned long)cgrp == (unsigned long)0xdead000000000100UL)
+		return 0;
+
 	save_sk = skb->sk;
 	skb->sk = sk;
 	__skb_push(skb, offset);
@@ -1094,6 +1097,9 @@ int __cgroup_bpf_run_filter_sk(struct sock *sk,
 {
 	struct cgroup *cgrp = sock_cgroup_ptr(&sk->sk_cgrp_data);
 	int ret;
+
+	if (!cgrp || (unsigned long)cgrp < PAGE_SIZE || (unsigned long)cgrp == (unsigned long)0xdead000000000100UL)
+		return 0;
 
 	ret = BPF_PROG_RUN_ARRAY(cgrp->bpf.effective[type], sk, BPF_PROG_RUN);
 	return ret == 1 ? 0 : -EPERM;
@@ -1139,6 +1145,9 @@ int __cgroup_bpf_run_filter_sock_addr(struct sock *sk,
 	}
 
 	cgrp = sock_cgroup_ptr(&sk->sk_cgrp_data);
+	if (!cgrp || (unsigned long)cgrp < PAGE_SIZE || (unsigned long)cgrp == (unsigned long)0xdead000000000100UL)
+		return 0;
+
 	ret = BPF_PROG_RUN_ARRAY(cgrp->bpf.effective[type], &ctx, BPF_PROG_RUN);
 
 	return ret == 1 ? 0 : -EPERM;
@@ -1167,6 +1176,9 @@ int __cgroup_bpf_run_filter_sock_ops(struct sock *sk,
 {
 	struct cgroup *cgrp = sock_cgroup_ptr(&sk->sk_cgrp_data);
 	int ret;
+
+	if (!cgrp || (unsigned long)cgrp < PAGE_SIZE || (unsigned long)cgrp == (unsigned long)0xdead000000000100UL)
+		return 0;
 
 	ret = BPF_PROG_RUN_ARRAY(cgrp->bpf.effective[type], sock_ops,
 				 BPF_PROG_RUN);
@@ -1342,6 +1354,9 @@ static bool __cgroup_bpf_prog_array_is_empty(struct cgroup *cgrp,
 	struct bpf_prog_array *prog_array;
 	bool empty;
 
+	if (!cgrp || (unsigned long)cgrp < PAGE_SIZE || (unsigned long)cgrp == (unsigned long)0xdead000000000100UL)
+		return true;
+
 	rcu_read_lock();
 	prog_array = rcu_dereference(cgrp->bpf.effective[attach_type]);
 	empty = bpf_prog_array_is_empty(prog_array);
@@ -1380,13 +1395,20 @@ int __cgroup_bpf_run_filter_setsockopt(struct sock *sk, int *level,
 				       int *optname, char __user *optval,
 				       int *optlen, char **kernel_optval)
 {
-	struct cgroup *cgrp = sock_cgroup_ptr(&sk->sk_cgrp_data);
+	struct cgroup *cgrp;
 	struct bpf_sockopt_kern ctx = {
 		.sk = sk,
 		.level = *level,
 		.optname = *optname,
 	};
 	int ret, max_optlen;
+
+	if (!sk)
+		return 0;
+
+	cgrp = sock_cgroup_ptr(&sk->sk_cgrp_data);
+	if (!cgrp || (unsigned long)cgrp < PAGE_SIZE || (unsigned long)cgrp == (unsigned long)0xdead000000000100UL)
+		return 0;
 
 	/* Opportunistic check to see whether we have any BPF program
 	 * attached to the hook so we don't waste time allocating
@@ -1458,7 +1480,7 @@ int __cgroup_bpf_run_filter_getsockopt(struct sock *sk, int level,
 				       int __user *optlen, int max_optlen,
 				       int retval)
 {
-	struct cgroup *cgrp = sock_cgroup_ptr(&sk->sk_cgrp_data);
+	struct cgroup *cgrp;
 	struct bpf_sockopt_kern ctx = {
 		.sk = sk,
 		.level = level,
@@ -1466,6 +1488,13 @@ int __cgroup_bpf_run_filter_getsockopt(struct sock *sk, int level,
 		.retval = retval,
 	};
 	int ret;
+
+	if (!sk)
+		return retval;
+
+	cgrp = sock_cgroup_ptr(&sk->sk_cgrp_data);
+	if (!cgrp || (unsigned long)cgrp < PAGE_SIZE || (unsigned long)cgrp == (unsigned long)0xdead000000000100UL)
+		return retval;
 
 	/* Opportunistic check to see whether we have any BPF program
 	 * attached to the hook so we don't waste time allocating
