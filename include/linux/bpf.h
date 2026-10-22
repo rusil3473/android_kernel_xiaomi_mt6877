@@ -1094,23 +1094,22 @@ int bpf_prog_array_copy(struct bpf_prog_array *old_array,
 		migrate_disable();			\
 		rcu_read_lock();			\
 		_array = rcu_dereference(array);	\
-		if (unlikely(!_array || (unsigned long)_array < PAGE_SIZE || (unsigned long)_array == (unsigned long)0xdead000000000100UL))\
-			goto _out;			\
-		_item = &_array->items[0];		\
-		while ((_prog = READ_ONCE(_item->prog))) {		\
-			if (unlikely((unsigned long)_prog < PAGE_SIZE || (unsigned long)_prog == (unsigned long)0xdead000000000100UL || !_prog->bpf_func))\
-				break;			\
-			if (!set_cg_storage) {			\
-				_ret &= func(_prog, ctx);	\
-			} else {				\
-				if (unlikely(bpf_cgroup_storage_set(_item->cgroup_storage)))	\
+		if (likely(_array && (unsigned long)_array >= PAGE_SIZE && (unsigned long)_array != (unsigned long)0xdead000000000100UL)) { \
+			_item = &_array->items[0];		\
+			while ((_prog = READ_ONCE(_item->prog))) {		\
+				if (unlikely((unsigned long)_prog < PAGE_SIZE || (unsigned long)_prog == (unsigned long)0xdead000000000100UL || !_prog->bpf_func))\
 					break;			\
-				_ret &= func(_prog, ctx);	\
-				bpf_cgroup_storage_unset();	\
-			}				\
-			_item++;			\
-		}					\
-_out:							\
+				if (!set_cg_storage) {			\
+					_ret &= func(_prog, ctx);	\
+				} else {				\
+					if (unlikely(bpf_cgroup_storage_set(_item->cgroup_storage)))	\
+						break;			\
+					_ret &= func(_prog, ctx);	\
+					bpf_cgroup_storage_unset();	\
+				}				\
+				_item++;			\
+			}					\
+		}						\
 		rcu_read_unlock();			\
 		migrate_enable();			\
 		_ret;					\
@@ -1149,21 +1148,20 @@ _out:							\
 		migrate_disable();			\
 		rcu_read_lock();			\
 		_array = rcu_dereference(array);	\
-		if (unlikely(!_array || (unsigned long)_array < PAGE_SIZE || (unsigned long)_array == (unsigned long)0xdead000000000100UL))\
-			goto _out;			\
-		_item = &_array->items[0];		\
-		while ((_prog = READ_ONCE(_item->prog))) {		\
-			if (unlikely((unsigned long)_prog < PAGE_SIZE || (unsigned long)_prog == (unsigned long)0xdead000000000100UL || !_prog->bpf_func))\
-				break;			\
-			if (unlikely(bpf_cgroup_storage_set(_item->cgroup_storage)))	\
-				break;			\
-			ret = func(_prog, ctx);		\
-			bpf_cgroup_storage_unset();	\
-			_ret &= (ret & 1);		\
-			_cn |= (ret & 2);		\
-			_item++;			\
-		}					\
-_out:							\
+		if (likely(_array && (unsigned long)_array >= PAGE_SIZE && (unsigned long)_array != (unsigned long)0xdead000000000100UL)) { \
+			_item = &_array->items[0];		\
+			while ((_prog = READ_ONCE(_item->prog))) {		\
+				if (unlikely((unsigned long)_prog < PAGE_SIZE || (unsigned long)_prog == (unsigned long)0xdead000000000100UL || !_prog->bpf_func))\
+					break;			\
+				if (unlikely(bpf_cgroup_storage_set(_item->cgroup_storage)))	\
+					break;			\
+				ret = func(_prog, ctx);		\
+				bpf_cgroup_storage_unset();	\
+				_ret &= (ret & 1);		\
+				_cn |= (ret & 2);		\
+				_item++;			\
+			}					\
+		}						\
 		rcu_read_unlock();			\
 		migrate_enable();			\
 		if (_ret)				\
