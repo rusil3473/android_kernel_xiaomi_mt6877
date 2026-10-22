@@ -9,7 +9,7 @@ on:
 jobs:
   build:
     name: Build Kernel Image
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-22.04
 
     steps:
       - name: Checkout Kernel Source
@@ -31,27 +31,25 @@ jobs:
             gperf \
             libelf-dev \
             libssl-dev \
+            libtinfo5 \
             lz4 \
             zlib1g-dev \
             gcc-aarch64-linux-gnu \
             gcc-arm-linux-gnueabi \
             python3 \
+            python-is-python3 \
             zip
 
-      - name: Download Neutron LLVM/Clang Toolchain
+      - name: Download Official AOSP Clang Toolchain (r416183b)
         run: |
-          mkdir -p clang
-          cd clang
-          curl -LO "https://raw.githubusercontent.com/Neutron-Toolchains/antman/main/antman"
-          chmod +x antman
-          bash antman -S
-          bash antman --patch=glibc || true
+          git clone --depth=1 -b lineage-20.0 https://github.com/LineageOS/android_prebuilts_clang_kernel_linux-x86_clang-r416183b.git clang
           echo "Clang version:"
-          ./bin/clang --version
+          ./clang/bin/clang --version
 
       - name: Build Kernel (Image.gz & DTB)
         run: |
           export PATH="$(pwd)/clang/bin:$PATH"
+          export LD_LIBRARY_PATH="$(pwd)/clang/lib64:$LD_LIBRARY_PATH"
           export ARCH=arm64
           export SUBARCH=arm64
           export HEADER_ARCH=arm64
@@ -89,8 +87,12 @@ jobs:
         run: |
           mkdir -p build_output
           cp out/arch/arm64/boot/Image.gz build_output/Image.gz
+          if [ -f "out/arch/arm64/boot/Image.gz-dtb" ]; then
+            cp out/arch/arm64/boot/Image.gz-dtb build_output/
+          fi
           if [ -d "out/arch/arm64/boot/dts/mediatek" ]; then
             find out/arch/arm64/boot/dts/mediatek/ -name "*.dtb" -exec cp {} build_output/ \;
+            find out/arch/arm64/boot/dts/mediatek/ -name "*.dtbo" -exec cp {} build_output/ \; 2>/dev/null || true
           fi
           cd build_output
           zip -r ../Redmi_Note_12_Pro_MT6877_Patched_Kernel.zip *
