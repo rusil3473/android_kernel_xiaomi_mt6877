@@ -25,6 +25,22 @@
 #include <linux/capability.h>
 #include <linux/percpu-refcount.h>
 
+#ifndef BPF_IS_VALID_KERNEL_ADDR
+#ifdef CONFIG_64BIT
+#define BPF_PTR_POISON1 ((unsigned long)0xdead000000000100UL)
+#define BPF_PTR_POISON2 ((unsigned long)0xdead000000000200UL)
+#define BPF_IS_VALID_KERNEL_ADDR(addr) \
+	((unsigned long)(addr) >= 0xffff000000000000UL && \
+	 (unsigned long)(addr) != BPF_PTR_POISON1 && \
+	 (unsigned long)(addr) != BPF_PTR_POISON2)
+#else
+#define BPF_IS_VALID_KERNEL_ADDR(addr) \
+	((unsigned long)(addr) >= PAGE_SIZE && \
+	 (unsigned long)(addr) != 0xdead0100UL && \
+	 (unsigned long)(addr) != 0xdead0200UL)
+#endif
+#endif
+
 struct bpf_verifier_env;
 struct bpf_verifier_log;
 struct perf_event;
@@ -661,6 +677,8 @@ static __always_inline __nocfi unsigned int bpf_dispatcher_nop_func(
 	unsigned int (*bpf_func)(const void *,
 				 const struct bpf_insn *))
 {
+	if (unlikely(!BPF_IS_VALID_KERNEL_ADDR(bpf_func)))
+		return 1;
 	return bpf_func(ctx, insnsi);
 }
 #ifdef CONFIG_BPF_JIT
@@ -1094,10 +1112,10 @@ int bpf_prog_array_copy(struct bpf_prog_array *old_array,
 		migrate_disable();			\
 		rcu_read_lock();			\
 		_array = rcu_dereference(array);	\
-		if (likely(_array && (unsigned long)_array >= PAGE_SIZE && (unsigned long)_array != (unsigned long)0xdead000000000100UL)) { \
+		if (likely(BPF_IS_VALID_KERNEL_ADDR(_array))) { \
 			_item = &_array->items[0];		\
 			while ((_prog = READ_ONCE(_item->prog))) {		\
-				if (unlikely((unsigned long)_prog < PAGE_SIZE || (unsigned long)_prog == (unsigned long)0xdead000000000100UL || !_prog->bpf_func))\
+				if (unlikely(!BPF_IS_VALID_KERNEL_ADDR(_prog) || !BPF_IS_VALID_KERNEL_ADDR(_prog->bpf_func))) \
 					break;			\
 				if (!set_cg_storage) {			\
 					_ret &= func(_prog, ctx);	\
@@ -1148,10 +1166,10 @@ int bpf_prog_array_copy(struct bpf_prog_array *old_array,
 		migrate_disable();			\
 		rcu_read_lock();			\
 		_array = rcu_dereference(array);	\
-		if (likely(_array && (unsigned long)_array >= PAGE_SIZE && (unsigned long)_array != (unsigned long)0xdead000000000100UL)) { \
+		if (likely(BPF_IS_VALID_KERNEL_ADDR(_array))) { \
 			_item = &_array->items[0];		\
 			while ((_prog = READ_ONCE(_item->prog))) {		\
-				if (unlikely((unsigned long)_prog < PAGE_SIZE || (unsigned long)_prog == (unsigned long)0xdead000000000100UL || !_prog->bpf_func))\
+				if (unlikely(!BPF_IS_VALID_KERNEL_ADDR(_prog) || !BPF_IS_VALID_KERNEL_ADDR(_prog->bpf_func))) \
 					break;			\
 				if (unlikely(bpf_cgroup_storage_set(_item->cgroup_storage)))	\
 					break;			\

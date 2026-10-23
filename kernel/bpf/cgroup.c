@@ -1053,7 +1053,7 @@ int __cgroup_bpf_run_filter_skb(struct sock *sk,
 		return 0;
 
 	cgrp = sock_cgroup_ptr(&sk->sk_cgrp_data);
-	if (!cgrp || (unsigned long)cgrp < PAGE_SIZE || (unsigned long)cgrp == (unsigned long)0xdead000000000100UL)
+	if (!BPF_IS_VALID_KERNEL_ADDR(cgrp) || type >= MAX_BPF_ATTACH_TYPE || !BPF_IS_VALID_KERNEL_ADDR(cgrp->bpf.effective[type]))
 		return 0;
 
 	save_sk = skb->sk;
@@ -1098,7 +1098,7 @@ int __cgroup_bpf_run_filter_sk(struct sock *sk,
 	struct cgroup *cgrp = sock_cgroup_ptr(&sk->sk_cgrp_data);
 	int ret;
 
-	if (!cgrp || (unsigned long)cgrp < PAGE_SIZE || (unsigned long)cgrp == (unsigned long)0xdead000000000100UL)
+	if (!BPF_IS_VALID_KERNEL_ADDR(cgrp) || type >= MAX_BPF_ATTACH_TYPE || !BPF_IS_VALID_KERNEL_ADDR(cgrp->bpf.effective[type]))
 		return 0;
 
 	ret = BPF_PROG_RUN_ARRAY(cgrp->bpf.effective[type], sk, BPF_PROG_RUN);
@@ -1145,7 +1145,7 @@ int __cgroup_bpf_run_filter_sock_addr(struct sock *sk,
 	}
 
 	cgrp = sock_cgroup_ptr(&sk->sk_cgrp_data);
-	if (!cgrp || (unsigned long)cgrp < PAGE_SIZE || (unsigned long)cgrp == (unsigned long)0xdead000000000100UL)
+	if (!BPF_IS_VALID_KERNEL_ADDR(cgrp) || type >= MAX_BPF_ATTACH_TYPE || !BPF_IS_VALID_KERNEL_ADDR(cgrp->bpf.effective[type]))
 		return 0;
 
 	ret = BPF_PROG_RUN_ARRAY(cgrp->bpf.effective[type], &ctx, BPF_PROG_RUN);
@@ -1177,7 +1177,7 @@ int __cgroup_bpf_run_filter_sock_ops(struct sock *sk,
 	struct cgroup *cgrp = sock_cgroup_ptr(&sk->sk_cgrp_data);
 	int ret;
 
-	if (!cgrp || (unsigned long)cgrp < PAGE_SIZE || (unsigned long)cgrp == (unsigned long)0xdead000000000100UL)
+	if (!BPF_IS_VALID_KERNEL_ADDR(cgrp) || type >= MAX_BPF_ATTACH_TYPE || !BPF_IS_VALID_KERNEL_ADDR(cgrp->bpf.effective[type]))
 		return 0;
 
 	ret = BPF_PROG_RUN_ARRAY(cgrp->bpf.effective[type], sock_ops,
@@ -1354,7 +1354,7 @@ static bool __cgroup_bpf_prog_array_is_empty(struct cgroup *cgrp,
 	struct bpf_prog_array *prog_array;
 	bool empty;
 
-	if (!cgrp || (unsigned long)cgrp < PAGE_SIZE || (unsigned long)cgrp == (unsigned long)0xdead000000000100UL)
+	if (!BPF_IS_VALID_KERNEL_ADDR(cgrp) || attach_type >= MAX_BPF_ATTACH_TYPE)
 		return true;
 
 	rcu_read_lock();
@@ -1407,7 +1407,7 @@ int __cgroup_bpf_run_filter_setsockopt(struct sock *sk, int *level,
 		return 0;
 
 	cgrp = sock_cgroup_ptr(&sk->sk_cgrp_data);
-	if (!cgrp || (unsigned long)cgrp < PAGE_SIZE || (unsigned long)cgrp == (unsigned long)0xdead000000000100UL)
+	if (!BPF_IS_VALID_KERNEL_ADDR(cgrp))
 		return 0;
 
 	/* Opportunistic check to see whether we have any BPF program
@@ -1493,7 +1493,7 @@ int __cgroup_bpf_run_filter_getsockopt(struct sock *sk, int level,
 		return retval;
 
 	cgrp = sock_cgroup_ptr(&sk->sk_cgrp_data);
-	if (!cgrp || (unsigned long)cgrp < PAGE_SIZE || (unsigned long)cgrp == (unsigned long)0xdead000000000100UL)
+	if (!BPF_IS_VALID_KERNEL_ADDR(cgrp))
 		return retval;
 
 	/* Opportunistic check to see whether we have any BPF program

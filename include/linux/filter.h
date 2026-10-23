@@ -29,6 +29,22 @@
 #include <uapi/linux/filter.h>
 #include <uapi/linux/bpf.h>
 
+#ifndef BPF_IS_VALID_KERNEL_ADDR
+#ifdef CONFIG_64BIT
+#define BPF_PTR_POISON1 ((unsigned long)0xdead000000000100UL)
+#define BPF_PTR_POISON2 ((unsigned long)0xdead000000000200UL)
+#define BPF_IS_VALID_KERNEL_ADDR(addr) \
+	((unsigned long)(addr) >= 0xffff000000000000UL && \
+	 (unsigned long)(addr) != BPF_PTR_POISON1 && \
+	 (unsigned long)(addr) != BPF_PTR_POISON2)
+#else
+#define BPF_IS_VALID_KERNEL_ADDR(addr) \
+	((unsigned long)(addr) >= PAGE_SIZE && \
+	 (unsigned long)(addr) != 0xdead0100UL && \
+	 (unsigned long)(addr) != 0xdead0200UL)
+#endif
+#endif
+
 struct sk_buff;
 struct sock;
 struct seccomp_data;
@@ -606,7 +622,9 @@ DECLARE_STATIC_KEY_FALSE(bpf_stats_enabled_key);
 #define __BPF_PROG_RUN(prog, ctx, dfunc)	({			\
 	u32 __ret;							\
 	cant_migrate();							\
-	if (static_branch_unlikely(&bpf_stats_enabled_key)) {		\
+	if (unlikely(!BPF_IS_VALID_KERNEL_ADDR(prog) || !BPF_IS_VALID_KERNEL_ADDR((prog)->bpf_func))) { \
+		__ret = 1;						\
+	} else if (static_branch_unlikely(&bpf_stats_enabled_key)) {		\
 		struct bpf_prog_stats *__stats;				\
 		u64 __start = sched_clock();				\
 		__ret = dfunc(ctx, (prog)->insnsi, (prog)->bpf_func);	\
@@ -737,6 +755,9 @@ static inline u32 __bpf_prog_run_save_cb(const struct bpf_prog *prog,
 	u8 *cb_data = bpf_skb_cb(skb);
 	u8 cb_saved[BPF_SKB_CB_LEN];
 	u32 res;
+
+	if (unlikely(!BPF_IS_VALID_KERNEL_ADDR(prog) || !BPF_IS_VALID_KERNEL_ADDR(prog->bpf_func)))
+		return 1;
 
 	if (unlikely(prog->cb_access)) {
 		memcpy(cb_saved, cb_data, sizeof(cb_saved));
